@@ -36,7 +36,13 @@ def load_data(dataset, data_dir):
         if k in ['train']:
             concatenate_data[k] = concatenate_datasets([i[k] for i in data_list])
         else:
-            concatenate_data[k] = concatenate_datasets([i[k].shuffle(seed=42).select(range(800)) for i in data_list])
+            # Avoid selecting more samples than available to prevent IndexError on small toy datasets
+            sampled_splits = []
+            for i in data_list:
+                split = i[k].shuffle(seed=42)
+                max_n = min(800, len(split))
+                sampled_splits.append(split.select(range(max_n)))
+            concatenate_data[k] = concatenate_datasets(sampled_splits)
     return concatenate_data
 
 def tokenize_dataset(train_split, eval_split, test_split, model, processor, **kwargs):

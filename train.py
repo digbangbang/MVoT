@@ -23,9 +23,9 @@ from utils.evaluator import VisualizationEvaluator
 
 logger = logging.getLogger(__name__)
 
-WANDB_API_KEY = "<YOUR_WANDB_KEY_API>"
-WANDB_ENTITY = "<YOUR_WANDB_ENTITY>"
-PROJECT_NAME = "<YOUR_PROJECT_NAME>"
+WANDB_API_KEY = "d95d910e798393b49f93cafe05d9522075f40240"
+WANDB_ENTITY = "2623448751"
+PROJECT_NAME = "MVOT"
 
 def init(args):
     os.environ[
@@ -143,6 +143,9 @@ if __name__ == '__main__':
     parser.add_argument('--do_predict', action='store_true')
     parser.add_argument('--cfg_path', type=str, default='cfg')
     parser.add_argument('--patience', type=int, default=5)
+    # quick test controls
+    parser.add_argument('--test_limit', type=int, default=None, help='limit number of test samples to run')
+    parser.add_argument('--eval_limit', type=int, default=None, help='limit number of eval samples to run')
 
     # input format argument
     parser.add_argument('--input_format', type=str, default="anole")
@@ -193,15 +196,29 @@ if __name__ == '__main__':
             eval_split = eval_split.select(list(range(10)))
         test_split = test_split.select(list(range(10)))
 
+    # limit test/eval size if requested
+    if args.test_limit is not None and test_split is not None:
+        limit = min(args.test_limit, len(test_split))
+        test_split = test_split.select(list(range(limit)))
+    if args.eval_limit is not None and eval_split is not None:
+        e_limit = min(args.eval_limit, len(eval_split))
+        eval_split = eval_split.select(list(range(e_limit)))
+
     model_processor = load_model(args)
     model, processor = model_processor['model'], model_processor["processor"]
     
-    eval_data_num = (len(eval_split) // (training_args.per_device_eval_batch_size * torch.cuda.device_count())) * (training_args.per_device_eval_batch_size * torch.cuda.device_count())
-    eval_split = eval_split.select(list(range(eval_data_num)))
-    test_data_num = (len(test_split) // (training_args.per_device_eval_batch_size * torch.cuda.device_count())) * (training_args.per_device_eval_batch_size * torch.cuda.device_count())
-    test_split = test_split.select(list(range(test_data_num)))
-
-    print(f"Eval Num: {eval_data_num}")
+    # Round dataset sizes to batch*gpu multiples only when present
+    world_bz = max(1, training_args.per_device_eval_batch_size * max(1, torch.cuda.device_count()))
+    if eval_split is not None and args.eval_limit is None:
+        eval_data_num = (len(eval_split) // world_bz) * world_bz
+        if eval_data_num > 0 and eval_data_num != len(eval_split):
+            eval_split = eval_split.select(list(range(eval_data_num)))
+        print(f"Eval Num: {eval_data_num}")
+    # Only round test set when not explicitly limited
+    if test_split is not None and args.test_limit is None:
+        test_data_num = (len(test_split) // world_bz) * world_bz
+        if test_data_num > 0 and test_data_num != len(test_split):
+            test_split = test_split.select(list(range(test_data_num)))
 
     tokenized_data, max_source_length, max_target_length = tokenize_dataset(
         train_split=train_split,

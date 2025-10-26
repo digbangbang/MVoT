@@ -19,13 +19,13 @@ def load_model(args):
 
         from model_utils.wrapped_visualizer import AnoleforConditionalGeneration
         model = AnoleforConditionalGeneration.from_pretrained(
-            "leloy/Anole-7b-v0.1-hf",
+            "/hpc2hdd/home/zli404/.cache/modelscope/hub/models/GAIR/Anole-7b",
             device_map="cuda",
             torch_dtype=torch.bfloat16,
             attn_implementation="flash_attention_2",
             codebook_sim="mse"
         )
-        processor = AutoProcessor.from_pretrained("leloy/Anole-7b-v0.1-hf", image_seq_length=image_token_num)
+        processor = AutoProcessor.from_pretrained("/hpc2hdd/home/zli404/.cache/modelscope/hub/models/GAIR/Anole-7b", image_seq_length=image_token_num)
         processor.image_processor.size = {"shortest_edge": int(512 / int(math.sqrt(1024 / image_token_num)))}
         processor.image_processor.crop_size = {
             "height": int(512 / int(math.sqrt(1024 / image_token_num))),
@@ -56,7 +56,9 @@ def load_model(args):
             modules_to_save=["lm_head"],
         )
         lora_model = get_peft_model(model, config)
-
+        
+        model_ckpt_path = None
+        
         if args.do_eval and not args.do_train and model_ckpt_path:
             lora_model.load_adapter(model_ckpt_path, 'default', is_trainable=False)
 

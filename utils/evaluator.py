@@ -2,7 +2,6 @@ import re
 
 import numpy as np
 
-from evaluate import load
 
 class VisualizationEvaluator():
     def __init__(self, **kwargs):

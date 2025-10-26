@@ -180,6 +180,15 @@ class CustomizeSeq2SeqTrainer(Seq2SeqTrainer):
         finally:
             self.compute_metrics = compute_metrics
 
+        # Ensure metrics is a dict
+        if output.metrics is None:
+            output = EvalLoopOutput(
+                predictions=output.predictions,
+                label_ids=output.label_ids,
+                metrics={},
+                num_samples=output.num_samples,
+            )
+
         if eval_examples is not None and eval_dataset is not None and self.compute_metrics is not None:
             eval_preds = self._post_process_function(
                 eval_examples,
@@ -260,6 +269,15 @@ class CustomizeSeq2SeqTrainer(Seq2SeqTrainer):
             )
         finally:
             self.compute_metrics = compute_metrics
+
+        # Ensure metrics is a dict
+        if output.metrics is None:
+            output = EvalLoopOutput(
+                predictions=output.predictions,
+                label_ids=output.label_ids,
+                metrics={},
+                num_samples=output.num_samples,
+            )
 
 
         if self.compute_metrics is not None:
