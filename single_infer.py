@@ -26,15 +26,7 @@ from utils.load_model import load_model
 # )
 
 REAL_GOAL_INSTRUCTION = (
-    "Task: FrozenLake\n"
-    "Determine whether the agent (elf character) can safely reach the gift following the action sequence without falling into the holes. If not, identify the failure reason. The definitions of the actions are as below. \n"
-    "* Go up/left/down/right: move one grid space in the absolute up/left/down/right direction. \n"
-    "Action Sequence: Get instructions from the image. \n"
-    "First, identify the action: \n"
-    "Then Return A, B or C. \n"
-    "A. Action Success. \n"
-    "B. Action Failed: Fall into the Hole. \n"
-    "C. Action Failed: Agent Safe but Fail to Reach Destination. \n"
+    "Task:  Describe what is in this picture, and if there is any text, output the text content. \n"
 )
 
 
@@ -77,7 +69,7 @@ def build_prompt_from_json(img_path: str, data_json_path: str) -> str:
         raise ValueError(f"data_id {data_id} not found in {data_json_path}")
 
     action_seq = "".join([f"Go {ACTION_DICT[a]}. " for a in (actions + additional_actions)])
-    init_state_text = "Initial State: <image>"
+    init_state_text = "<image>"
     history_text = ""  # first-step prompt
     input_text = LONG_HORIZON_VISUALIZATION_INSTRUCTION.replace("<INIT_STATE>", init_state_text).replace("<ACTION_HISTORY>", history_text)
     input_text = REAL_GOAL_INSTRUCTION + input_text

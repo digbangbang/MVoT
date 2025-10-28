@@ -16,10 +16,6 @@ from utils.load_model import load_model
 PROMPT_NO_ACTIONS = (
     "Task: FrozenLake\n"
     "Use the images to read the action instructions and determine the outcome.\n"
-    "Return A, B or C.\n"
-    "A. Action Success.\n"
-    "B. Action Failed: Fall into the Hole.\n"
-    "C. Action Failed: Agent Safe but Fail to Reach Destination.\n"
     "Initial State and Instructions:\n<image>\n<image>\n"
 )
 
@@ -141,3 +137,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+'''
+cd /hpc2hdd/home/zli404/workspace/MVoT
+source ~/miniconda3/bin/activate mvot
+python two_image_ocr_infer.py \
+  --image_path1 /hpc2hdd/home/zli404/workspace/MVoT/data_samples/frozenlake/ocr_level/3/0.png \
+  --image_path2 /hpc2hdd/home/zli404/workspace/MVoT/data_samples/frozenlake/ocr_level/3/1.png \
+  --max_new_tokens 400 \
+  --save_dir outputs/two_image_demo
+'''
