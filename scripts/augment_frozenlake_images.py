@@ -48,6 +48,26 @@ def draw_text_on_bottom(img: Image.Image, text: str, pad_px: int = 64, margin: i
     return canvas
 
 
+def square_pad(img: Image.Image, bg: tuple = (255, 255, 255)) -> Image.Image:
+    """Pad the shorter side to make the image square, centering the original.
+
+    Args:
+        img: PIL Image.
+        bg: background color (RGB) for padding.
+
+    Returns:
+        A new square PIL Image.
+    """
+    w, h = img.size
+    side = max(w, h)
+    canvas = Image.new("RGB", (side, side), color=bg)
+    # center paste
+    left = (side - w) // 2
+    top = (side - h) // 2
+    canvas.paste(img, (left, top))
+    return canvas
+
+
 def process_sequence(src_dir: str, dst_dir: str, data_id: str, actions: list, pad_px: int) -> None:
     # For each t in actions, put next instruction on image t.png
     for t, act in enumerate(actions):
@@ -64,6 +84,8 @@ def process_sequence(src_dir: str, dst_dir: str, data_id: str, actions: list, pa
                 else:
                     text = f"Go {direction}."
                 out = draw_text_on_bottom(im, text, pad_px=pad_px)
+                # Make final image square by padding the shorter side
+                out = square_pad(out)
                 out.save(dst_img)
         except Exception:
             # If anything fails, leave the original already-copied image
@@ -110,3 +132,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+'''
+
+'''

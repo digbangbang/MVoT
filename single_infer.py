@@ -9,19 +9,34 @@ import torch
 from transformers.generation import StoppingCriteriaList
 from transformers import StopStringCriteria
 
+from utils.postprocess_logits_utils import split_token_sequence
+
 from utils.load_model import load_model
 
+
+# REAL_GOAL_INSTRUCTION = (
+#     "Task: FrozenLake\n"
+#     "Determine whether the agent (elf character) can safely reach the gift following the action sequence without falling into the holes. If not, identify the failure reason. The definitions of the actions are as below. \n"
+#     "* Go up/left/down/right: move one grid space in the absolute up/left/down/right direction. \n"
+#     "Return A, B or C. \n"
+#     "Full Action Sequence: <ACTION_SEQ>\n"
+#     "A. Action Success. \n"
+#     "B. Action Failed: Fall into the Hole. \n"
+#     "C. Action Failed: Agent Safe but Fail to Reach Destination. \n"
+# )
 
 REAL_GOAL_INSTRUCTION = (
     "Task: FrozenLake\n"
     "Determine whether the agent (elf character) can safely reach the gift following the action sequence without falling into the holes. If not, identify the failure reason. The definitions of the actions are as below. \n"
     "* Go up/left/down/right: move one grid space in the absolute up/left/down/right direction. \n"
-    "Return A, B or C. \n"
-    "Full Action Sequence: <ACTION_SEQ>\n"
+    "Action Sequence: Get instructions from the image. \n"
+    "First, identify the action: \n"
+    "Then Return A, B or C. \n"
     "A. Action Success. \n"
     "B. Action Failed: Fall into the Hole. \n"
     "C. Action Failed: Agent Safe but Fail to Reach Destination. \n"
 )
+
 
 LONG_HORIZON_VISUALIZATION_INSTRUCTION = (
     "<INIT_STATE>\nResponse: <ACTION_HISTORY>"
@@ -119,19 +134,38 @@ def main():
     save_dir = args.save_dir or os.path.join(os.path.dirname(args.image_path), "_single_out")
     os.makedirs(save_dir, exist_ok=True)
 
+    # Insert image tokens into input_ids at <image> placeholder positions
     with torch.no_grad():
-        pred_text, _, _, _ = model.recursive_generate(
-            processor=processor,
-            input_text=input_text,
-            save_dir=save_dir,
-            inputs=None,
+        img_tokens = model.model.model.get_image_tokens(pixel_values).to(torch.int64)
+        # flatten to 1D and replace placeholders
+        input_ids = tokenized["input_ids"].clone()
+        mask = (input_ids == model.config.image_token_id)
+        input_ids[mask] = img_tokens.reshape(-1)
+
+        generated_tokens, _ = model.generate(
+            input_ids=input_ids,
+            attention_mask=tokenized["attention_mask"],
             max_new_tokens=args.max_new_tokens,
             stopping_criteria=stopping,
             multimodal_generation_mode="interleaved-text-image",
-            pixel_values=pixel_values,
-            input_ids=tokenized["input_ids"],
-            attention_mask=tokenized["attention_mask"],
         )
+
+    # Post-process: split text and images, decode and save
+    parts = split_token_sequence(
+        tokens=generated_tokens,
+        image_seq_length=model.image_token_num,
+        boi=model.config.boi_token_id,
+        eoi=model.config.eoi_token_id,
+        max_length=generated_tokens.shape[-1],
+        pad_token_id=model.config.eos_token_id,
+    )
+    pred_text = processor.batch_decode(parts['texts'], skip_special_tokens=True)[0]
+    if parts["images"] is not None:
+        for i, img_tokens in enumerate(parts["images"]):
+            img = model.decode_image_tokens(img_tokens.to(model.device))
+            img = processor.postprocess_pixel_values(img).squeeze()
+            img = Image.fromarray(img.permute(1, 2, 0).detach().cpu().numpy())
+            img.save(os.path.join(save_dir, f"{i}.jpg"))
 
     print("===== MODEL OUTPUT =====")
     print(pred_text)
@@ -143,7 +177,5 @@ if __name__ == "__main__":
 
 
 '''
-bug TODO infer停止不了？
-
 cd /hpc2hdd/home/zli404/workspace/MVoT && source ~/miniconda3/bin/activate mvot && python single_infer.py --image_path data_samples/frozenlake/ocr_level/0/0.png --data_json data_samples/frozenlake/level3/data.json --max_new_tokens 400 --save_dir outputs/single_image_demo
 '''
