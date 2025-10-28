@@ -183,4 +183,4 @@ tensorboard_log/
 images/
 images*
 
-data_samples/
+__MACOSX/
